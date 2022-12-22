@@ -1,0 +1,16 @@
+#! /usr/bin/make -f
+
+export PYBUILD_NAME=pytest-mock
+
+# Add the pytest-mock egg to the build dir, so pytest can find it when
+# running the tests.
+export PYBUILD_BEFORE_TEST=cp -r {dir}/src/*.egg-info {build_dir}
+export PYBUILD_TEST_ARGS={dir}/tests
+export PYBUILD_AFTER_TEST=rm -rf {build_dir}/*.egg-info
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -f src/pytest_mock/_version.py
