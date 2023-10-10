@@ -1,3 +1,53 @@
+pytest-mock (3.11.1-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream version 3.11.1
+    - Stop importing deprecated py.code module
+  * Bump Standards-Version to 4.6.2
+
+ -- Timo Röhling <roehling@debian.org>  Wed, 05 Jul 2023 14:33:45 +0200
+
+pytest-mock (3.8.2-3) unstable; urgency=medium
+
+  [ Debian Janitor ]
+  * Remove constraints unnecessary since buster (oldstable):
+    + python3-pytest-mock: Drop versioned constraint on python3-pytest in
+      Depends.
+
+ -- Jelmer Vernooĳ <jelmer@debian.org>  Wed, 09 Nov 2022 20:40:50 +0000
+
+pytest-mock (3.8.2-2) unstable; urgency=medium
+
+  * Team upload
+  * Source-only upload to allow migration to testing
+
+ -- Julian Gilbey <jdg@debian.org>  Sun, 17 Jul 2022 07:38:08 +0100
+
+pytest-mock (3.8.2-1) unstable; urgency=medium
+
+  * Team upload
+  * New upstream version: this introduces sphinx-based documentation, so
+    split that out into a new package
+  * Explicitly depend on pytest 7
+
+ -- Julian Gilbey <jdg@debian.org>  Fri, 15 Jul 2022 18:46:34 +0100
+
+pytest-mock (3.7.0-2) unstable; urgency=medium
+
+  * Team upload
+  * Specify version limit for python3-pytest-asyncio in Build-Depends and
+    autopkgtest; the asyncio_mode setting was only introduced in version
+    0.17 or 0.18.  This only affects the tests, not the binary package.
+
+ -- Julian Gilbey <jdg@debian.org>  Sun, 29 May 2022 10:29:20 +0100
+
+pytest-mock (3.7.0-1) unstable; urgency=medium
+
+  * Team upload
+  * New upstream version (Closes: 1006736)
+
+ -- Julian Gilbey <jdg@debian.org>  Fri, 27 May 2022 07:37:21 +0100
+
 pytest-mock (3.6.1-1) unstable; urgency=medium
 
   [ Diego M. Rodriguez ]

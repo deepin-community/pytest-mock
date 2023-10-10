@@ -1,5 +1,3 @@
-from io import open
-
 from setuptools import find_packages
 from setuptools import setup
 
@@ -12,7 +10,7 @@ setup(
     package_data={
         "pytest_mock": ["py.typed"],
     },
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     install_requires=["pytest>=5.0"],
     use_scm_version={"write_to": "src/pytest_mock/_version.py"},
     setup_requires=["setuptools_scm"],
@@ -22,6 +20,7 @@ setup(
     author_email="nicoddemus@gmail.com",
     description="Thin-wrapper around the mock package for easier use with pytest",
     long_description=open("README.rst", encoding="utf-8").read(),
+    long_description_content_type="text/x-rst",
     keywords="pytest mock",
     extras_require={"dev": ["pre-commit", "tox", "pytest-asyncio"]},
     classifiers=[
@@ -31,11 +30,18 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3 :: Only",
         "Topic :: Software Development :: Testing",
     ],
+    project_urls={
+        "Documentation": "https://pytest-mock.readthedocs.io/en/latest/",
+        "Changelog": "https://pytest-mock.readthedocs.io/en/latest/changelog.html",
+        "Source": "https://github.com/pytest-dev/pytest-mock/",
+        "Tracker": "https://github.com/pytest-dev/pytest-mock/issues",
+    },
 )

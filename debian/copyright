@@ -4,11 +4,17 @@ Upstream-Contact: Bruno Oliveira <nicoddemus@gmail.com>
 Source: https://github.com/pytest-dev/pytest-mock/
 
 Files: *
-Copyright: Bruno Oliveira <nicoddemus@gmail.com>
+Copyright: 2016- Bruno Oliveira <nicoddemus@gmail.com>
 License: LGPL-3
 
 Files: debian/*
-Copyright: 2015 © Vincent Bernat <bernat@debian.org>
+Copyright: 2015-2017 Vincent Bernat <bernat@debian.org>
+  2018 Ghislain Antony Vaillant <ghisvail@gmail.com>
+  2018-2021 Ondřej Nový <onovy@debian.org>
+  2019-2021 Sandro Tosi <morph@debian.org>
+  2021 Nilesh Patra <npatra974@gmail.com>
+  2021 Diego M. Rodriguez
+  2022 Julian Gilbey <jdg@debian.org>
 License: LGPL-3
 
 License: LGPL-3
