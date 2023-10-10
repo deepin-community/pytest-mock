@@ -1,3 +1,59 @@
+Releases
+========
+
+3.11.1 (2023-06-15)
+-------------------
+
+* Fixed introspection for failed ``assert_has_calls`` (`#365`_).
+
+* Updated type annotations for ``mocker.patch`` and ``mocker.spy`` (`#364`_).
+
+.. _#365: https://github.com/pytest-dev/pytest-mock/pull/365
+.. _#364: https://github.com/pytest-dev/pytest-mock/pull/364
+
+
+3.10.0 (2022-10-05)
+-------------------
+
+* Added new ``mocker.stop(m)`` method to stop specific ``mocker.patch`` or ``mocker.spy`` calls (`#319`_).
+
+.. _#319: https://github.com/pytest-dev/pytest-mock/pull/319
+
+3.9.0 (2022-09-28)
+------------------
+
+* Expose ``NonCallableMagicMock`` via the ``mocker`` fixture (`#318`_).
+
+.. _#318: https://github.com/pytest-dev/pytest-mock/pull/318
+
+3.8.2 (2022-07-05)
+------------------
+
+- Fixed ``AsyncMock`` support for Python 3.7+ in ``mocker.async_stub`` (`#302`_).
+
+.. _#302: https://github.com/pytest-dev/pytest-mock/pull/302
+
+3.8.1 (2022-06-24)
+------------------
+
+* Fixed regression caused by an explicit ``mock`` dependency in the code (`#298`_).
+
+.. _#298: https://github.com/pytest-dev/pytest-mock/issues/298
+
+3.8.0 (2022-06-24)
+------------------
+
+* Add ``MockerFixture.async_mock`` method. Thanks `@PerchunPak`_ for the PR (`#296`_).
+
+.. _@PerchunPak: https://github.com/PerchunPak
+.. _#296: https://github.com/pytest-dev/pytest-mock/pull/296
+
+3.7.0 (2022-01-28)
+------------------
+
+* Python 3.10 now officially supported.
+* Dropped support for Python 3.6.
+
 3.6.1 (2021-05-06)
 ------------------
 
@@ -408,8 +464,7 @@ Breaking Changes
   option.
   Thanks `@asfaltboy`_ for the PR (`#36`_).
 
-* ``mocker.stub()`` now allows passing in the name for the constructed `Mock
-  <https://docs.python.org/3/library/unittest.mock.html#the-mock-class>`_
+* ``mocker.stub()`` now allows passing in the name for the constructed ``Mock``
   object instead of having to set it using the internal ``_mock_name`` attribute
   directly. This is useful for debugging as the name is used in the mock's
   ``repr`` string as well as related assertion failure messages.

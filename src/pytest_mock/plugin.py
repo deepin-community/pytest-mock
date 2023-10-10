@@ -27,6 +27,17 @@ from ._util import parse_ini_boolean
 
 _T = TypeVar("_T")
 
+if sys.version_info >= (3, 8):
+    AsyncMockType = unittest.mock.AsyncMock
+    MockType = Union[
+        unittest.mock.MagicMock,
+        unittest.mock.AsyncMock,
+        unittest.mock.NonCallableMagicMock,
+    ]
+else:
+    AsyncMockType = Any
+    MockType = Union[unittest.mock.MagicMock, unittest.mock.NonCallableMagicMock]
+
 
 class PytestMockWarning(UserWarning):
     """Base class for all warnings emitted by pytest-mock."""
@@ -39,16 +50,16 @@ class MockerFixture:
     """
 
     def __init__(self, config: Any) -> None:
-        self._patches = []  # type: List[Any]
-        self._mocks = []  # type: List[Any]
+        self._patches_and_mocks: List[Tuple[Any, unittest.mock.MagicMock]] = []
         self.mock_module = mock_module = get_mock_module(config)
         self.patch = self._Patcher(
-            self._patches, self._mocks, mock_module
+            self._patches_and_mocks, mock_module
         )  # type: MockerFixture._Patcher
         # aliases for convenience
         self.Mock = mock_module.Mock
         self.MagicMock = mock_module.MagicMock
         self.NonCallableMock = mock_module.NonCallableMock
+        self.NonCallableMagicMock = mock_module.NonCallableMagicMock
         self.PropertyMock = mock_module.PropertyMock
         if hasattr(mock_module, "AsyncMock"):
             self.AsyncMock = mock_module.AsyncMock
@@ -76,8 +87,10 @@ class MockerFixture:
         else:
             supports_reset_mock_with_args = (self.Mock,)
 
-        for m in self._mocks:
+        for p, m in self._patches_and_mocks:
             # See issue #237.
+            if not hasattr(m, "reset_mock"):
+                continue
             if isinstance(m, supports_reset_mock_with_args):
                 m.reset_mock(return_value=return_value, side_effect=side_effect)
             else:
@@ -88,12 +101,24 @@ class MockerFixture:
         Stop all patchers started by this fixture. Can be safely called multiple
         times.
         """
-        for p in reversed(self._patches):
+        for p, m in reversed(self._patches_and_mocks):
             p.stop()
-        self._patches[:] = []
-        self._mocks[:] = []
+        self._patches_and_mocks.clear()
 
-    def spy(self, obj: object, name: str) -> unittest.mock.MagicMock:
+    def stop(self, mock: unittest.mock.MagicMock) -> None:
+        """
+        Stops a previous patch or spy call by passing the ``MagicMock`` object
+        returned by it.
+        """
+        for index, (p, m) in enumerate(self._patches_and_mocks):
+            if mock is m:
+                p.stop()
+                del self._patches_and_mocks[index]
+                break
+        else:
+            raise ValueError("This mock object is not registered")
+
+    def spy(self, obj: object, name: str) -> MockType:
         """
         Create a spy of method. It will run method normally, but it is now
         possible to use `mock` call features with it, like call count.
@@ -159,6 +184,19 @@ class MockerFixture:
             self.mock_module.MagicMock(spec=lambda *args, **kwargs: None, name=name),
         )
 
+    def async_stub(self, name: Optional[str] = None) -> AsyncMockType:
+        """
+        Create a async stub method. It accepts any arguments. Ideal to register to
+        callbacks in tests.
+
+        :param name: the constructed stub's name as used in repr
+        :return: Stub object.
+        """
+        return cast(
+            AsyncMockType,
+            self.mock_module.AsyncMock(spec=lambda *args, **kwargs: None, name=name),
+        )
+
     class _Patcher:
         """
         Object to provide the same interface as mock.patch, mock.patch.object,
@@ -167,23 +205,21 @@ class MockerFixture:
 
         DEFAULT = object()
 
-        def __init__(self, patches, mocks, mock_module):
-            self._patches = patches
-            self._mocks = mocks
+        def __init__(self, patches_and_mocks, mock_module):
+            self.__patches_and_mocks = patches_and_mocks
             self.mock_module = mock_module
 
         def _start_patch(
             self, mock_func: Any, warn_on_mock_enter: bool, *args: Any, **kwargs: Any
-        ) -> unittest.mock.MagicMock:
+        ) -> MockType:
             """Patches something by calling the given function from the mock
             module, registering the patch to stop it later and returns the
             mock object resulting from the mock call.
             """
             p = mock_func(*args, **kwargs)
-            mocked = p.start()  # type: unittest.mock.MagicMock
-            self._patches.append(p)
+            mocked: MockType = p.start()
+            self.__patches_and_mocks.append((p, mocked))
             if hasattr(mocked, "reset_mock"):
-                self._mocks.append(mocked)
                 # check if `mocked` is actually a mock object, as depending on autospec or target
                 # parameters `mocked` can be anything
                 if hasattr(mocked, "__enter__") and warn_on_mock_enter:
@@ -195,7 +231,7 @@ class MockerFixture:
                         "Mocks returned by pytest-mock do not need to be used as context managers. "
                         "The mocker fixture automatically undoes mocking at the end of a test. "
                         "This warning can be ignored if it was triggered by mocking a context manager. "
-                        "https://github.com/pytest-dev/pytest-mock#note-about-usage-as-context-manager",
+                        "https://pytest-mock.readthedocs.io/en/latest/remarks.html#usage-as-context-manager",
                         PytestMockWarning,
                         stacklevel=depth,
                     )
@@ -212,7 +248,7 @@ class MockerFixture:
             autospec: Optional[object] = None,
             new_callable: object = None,
             **kwargs: Any
-        ) -> unittest.mock.MagicMock:
+        ) -> MockType:
             """API to mock.patch.object"""
             if new is self.DEFAULT:
                 new = self.mock_module.DEFAULT
@@ -241,7 +277,7 @@ class MockerFixture:
             autospec: Optional[builtins.object] = None,
             new_callable: builtins.object = None,
             **kwargs: Any
-        ) -> unittest.mock.MagicMock:
+        ) -> MockType:
             """This is equivalent to mock.patch.object except that the returned mock
             does not issue a warning when used as a context manager."""
             if new is self.DEFAULT:
@@ -269,7 +305,7 @@ class MockerFixture:
             autospec: Optional[builtins.object] = None,
             new_callable: Optional[builtins.object] = None,
             **kwargs: Any
-        ) -> Dict[str, unittest.mock.MagicMock]:
+        ) -> Dict[str, MockType]:
             """API to mock.patch.multiple"""
             return self._start_patch(
                 self.mock_module.patch.multiple,
@@ -311,7 +347,7 @@ class MockerFixture:
             autospec: Optional[builtins.object] = ...,
             new_callable: None = ...,
             **kwargs: Any
-        ) -> unittest.mock.MagicMock:
+        ) -> MockType:
             ...
 
         @overload
@@ -437,6 +473,54 @@ def assert_wrapper(
         raise e
 
 
+def assert_has_calls_wrapper(
+    __wrapped_mock_method__: Callable[..., Any], *args: Any, **kwargs: Any
+) -> None:
+    __tracebackhide__ = True
+    try:
+        __wrapped_mock_method__(*args, **kwargs)
+        return
+    except AssertionError as e:
+        any_order = kwargs.get("any_order", False)
+        if getattr(e, "_mock_introspection_applied", 0) or any_order:
+            msg = str(e)
+        else:
+            __mock_self = args[0]
+            msg = str(e)
+            if __mock_self.call_args_list is not None:
+                actual_calls = list(__mock_self.call_args_list)
+                expect_calls = args[1]
+                introspection = ""
+                from itertools import zip_longest
+
+                for actual_call, expect_call in zip_longest(actual_calls, expect_calls):
+                    if actual_call is not None:
+                        actual_args, actual_kwargs = actual_call
+                    else:
+                        actual_args = tuple()
+                        actual_kwargs = {}
+
+                    if expect_call is not None:
+                        _, expect_args, expect_kwargs = expect_call
+                    else:
+                        expect_args = tuple()
+                        expect_kwargs = {}
+
+                    try:
+                        assert actual_args == expect_args
+                    except AssertionError as e_args:
+                        introspection += "\nArgs:\n" + str(e_args)
+                    try:
+                        assert actual_kwargs == expect_kwargs
+                    except AssertionError as e_kwargs:
+                        introspection += "\nKwargs:\n" + str(e_kwargs)
+                if introspection:
+                    msg += "\n\npytest introspection follows:\n" + introspection
+        e = AssertionError(msg)
+        e._mock_introspection_applied = True  # type:ignore[attr-defined]
+        raise e
+
+
 def wrap_assert_not_called(*args: Any, **kwargs: Any) -> None:
     __tracebackhide__ = True
     assert_wrapper(_mock_module_originals["assert_not_called"], *args, **kwargs)
@@ -459,7 +543,9 @@ def wrap_assert_called_once_with(*args: Any, **kwargs: Any) -> None:
 
 def wrap_assert_has_calls(*args: Any, **kwargs: Any) -> None:
     __tracebackhide__ = True
-    assert_wrapper(_mock_module_originals["assert_has_calls"], *args, **kwargs)
+    assert_has_calls_wrapper(
+        _mock_module_originals["assert_has_calls"], *args, **kwargs
+    )
 
 
 def wrap_assert_any_call(*args: Any, **kwargs: Any) -> None:
