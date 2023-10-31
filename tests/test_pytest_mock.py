@@ -2,6 +2,7 @@ import os
 import platform
 import re
 import sys
+import warnings
 from contextlib import contextmanager
 from typing import Any
 from typing import Callable
@@ -25,13 +26,16 @@ skip_pypy = pytest.mark.skipif(
 # Python 3.8 changed the output formatting (bpo-35500), which has been ported to mock 3.0
 NEW_FORMATTING = sys.version_info >= (3, 8)
 
+if sys.version_info[:2] >= (3, 8):
+    from unittest.mock import AsyncMock
+
 
 @pytest.fixture
 def needs_assert_rewrite(pytestconfig):
     """
     Fixture which skips requesting test if assertion rewrite is disabled (#102)
 
-    Making this a fixture to avoid acessing pytest's config in the global context.
+    Making this a fixture to avoid accessing pytest's config in the global context.
     """
     option = pytestconfig.getoption("assertmode")
     if option != "rewrite":
@@ -156,6 +160,7 @@ def test_mock_patch_dict_resetall(mocker: MockerFixture) -> None:
         "MagicMock",
         "Mock",
         "mock_open",
+        "NonCallableMagicMock",
         "NonCallableMock",
         "PropertyMock",
         "sentinel",
@@ -211,7 +216,7 @@ class TestMockerStub:
     def test_repr_with_name(self, mocker: MockerFixture) -> None:
         test_name = "funny walk"
         stub = mocker.stub(name=test_name)
-        assert "name={!r}".format(test_name) in repr(stub)
+        assert f"name={test_name!r}" in repr(stub)
 
     def __test_failure_message(self, mocker: MockerFixture, **kwargs: Any) -> None:
         expected_name = kwargs.get("name") or "mock"
@@ -231,6 +236,13 @@ class TestMockerStub:
     @pytest.mark.parametrize("name", (None, "", "f", "The Castle of aaarrrrggh"))
     def test_failure_message_with_name(self, mocker: MagicMock, name: str) -> None:
         self.__test_failure_message(mocker, name=name)
+
+    @pytest.mark.skipif(
+        sys.version_info[:2] < (3, 8),
+        reason="This Python version doesn't have `AsyncMock`.",
+    )
+    def test_async_stub_type(self, mocker: MockerFixture) -> None:
+        assert isinstance(mocker.async_stub(), AsyncMock)
 
 
 def test_instance_method_spy(mocker: MockerFixture) -> None:
@@ -267,19 +279,19 @@ def test_instance_method_spy_exception(
 ) -> None:
     class Foo:
         def bar(self, arg):
-            raise exc_cls("Error with {}".format(arg))
+            raise exc_cls(f"Error with {arg}")
 
     foo = Foo()
     spy = mocker.spy(foo, "bar")
 
     expected_calls = []
     for i, v in enumerate([10, 20]):
-        with pytest.raises(exc_cls, match="Error with {}".format(v)):
+        with pytest.raises(exc_cls, match=f"Error with {v}"):
             foo.bar(arg=v)
 
         expected_calls.append(mocker.call(arg=v))
         assert foo.bar.call_args_list == expected_calls  # type:ignore[attr-defined]
-        assert str(spy.spy_exception) == "Error with {}".format(v)
+        assert str(spy.spy_exception) == f"Error with {v}"
 
 
 def test_instance_method_spy_autospec_true(mocker: MockerFixture) -> None:
@@ -296,7 +308,7 @@ def test_instance_method_spy_autospec_true(mocker: MockerFixture) -> None:
 
 
 def test_spy_reset(mocker: MockerFixture) -> None:
-    class Foo(object):
+    class Foo:
         def bar(self, x):
             if x == 0:
                 raise ValueError("invalid x")
@@ -407,7 +419,6 @@ def test_class_method_with_metaclass_spy(mocker: MockerFixture) -> None:
         pass
 
     class Foo:
-
         __metaclass__ = MetaFoo
 
         @classmethod
@@ -475,7 +486,6 @@ def test_callable_like_spy(testdir: Any, mocker: MockerFixture) -> None:
     assert spy.spy_return == 20
 
 
-@pytest.mark.asyncio
 async def test_instance_async_method_spy(mocker: MockerFixture) -> None:
     class Foo:
         async def bar(self, arg):
@@ -620,6 +630,86 @@ def test_assert_has_calls(mocker: MockerFixture) -> None:
         stub.assert_has_calls([mocker.call("bar")])
 
 
+def test_assert_has_calls_multiple_calls(mocker: MockerFixture) -> None:
+    stub = mocker.stub()
+    stub("foo")
+    stub("bar")
+    stub("baz")
+    stub.assert_has_calls([mocker.call("foo"), mocker.call("bar"), mocker.call("baz")])
+    with assert_traceback():
+        stub.assert_has_calls(
+            [
+                mocker.call("foo"),
+                mocker.call("bar"),
+                mocker.call("baz"),
+                mocker.call("bat"),
+            ]
+        )
+    with assert_traceback():
+        stub.assert_has_calls(
+            [mocker.call("foo"), mocker.call("baz"), mocker.call("bar")]
+        )
+
+
+def test_assert_has_calls_multiple_calls_subset(mocker: MockerFixture) -> None:
+    stub = mocker.stub()
+    stub("foo")
+    stub("bar")
+    stub("baz")
+    stub.assert_has_calls([mocker.call("bar"), mocker.call("baz")])
+    with assert_traceback():
+        stub.assert_has_calls([mocker.call("foo"), mocker.call("baz")])
+    with assert_traceback():
+        stub.assert_has_calls(
+            [mocker.call("foo"), mocker.call("bar"), mocker.call("bat")]
+        )
+    with assert_traceback():
+        stub.assert_has_calls([mocker.call("baz"), mocker.call("bar")])
+
+
+def test_assert_has_calls_multiple_calls_any_order(mocker: MockerFixture) -> None:
+    stub = mocker.stub()
+    stub("foo")
+    stub("bar")
+    stub("baz")
+    stub.assert_has_calls(
+        [mocker.call("foo"), mocker.call("baz"), mocker.call("bar")], any_order=True
+    )
+    with assert_traceback():
+        stub.assert_has_calls(
+            [
+                mocker.call("foo"),
+                mocker.call("baz"),
+                mocker.call("bar"),
+                mocker.call("bat"),
+            ],
+            any_order=True,
+        )
+
+
+def test_assert_has_calls_multiple_calls_any_order_subset(
+    mocker: MockerFixture,
+) -> None:
+    stub = mocker.stub()
+    stub("foo")
+    stub("bar")
+    stub("baz")
+    stub.assert_has_calls([mocker.call("baz"), mocker.call("foo")], any_order=True)
+    with assert_traceback():
+        stub.assert_has_calls(
+            [mocker.call("baz"), mocker.call("foo"), mocker.call("bat")], any_order=True
+        )
+
+
+def test_assert_has_calls_no_calls(
+    mocker: MockerFixture,
+) -> None:
+    stub = mocker.stub()
+    stub.assert_has_calls([])
+    with assert_traceback():
+        stub.assert_has_calls([mocker.call("foo")])
+
+
 def test_monkeypatch_ini(testdir: Any, mocker: MockerFixture) -> None:
     # Make sure the following function actually tests something
     stub = mocker.stub()
@@ -627,7 +717,6 @@ def test_monkeypatch_ini(testdir: Any, mocker: MockerFixture) -> None:
 
     testdir.makepyfile(
         """
-        import py.code
         def test_foo(mocker):
             stub = mocker.stub()
             assert stub.assert_called_with.__module__ == stub.__module__
@@ -708,10 +797,14 @@ def test_monkeypatch_no_terminal(testdir: Any) -> None:
 
 def test_standalone_mock(testdir: Any) -> None:
     """Check that the "mock_use_standalone" is being used."""
+    pytest.importorskip("mock")
+
     testdir.makepyfile(
         """
+        import mock
+
         def test_foo(mocker):
-            pass
+            assert mock.MagicMock is mocker.MagicMock
     """
     )
     testdir.makeini(
@@ -721,13 +814,18 @@ def test_standalone_mock(testdir: Any) -> None:
     """
     )
     result = testdir.runpytest_subprocess()
-    assert result.ret == 3
-    result.stderr.fnmatch_lines(["*No module named 'mock'*"])
+    assert result.ret == 0
 
 
 @pytest.mark.usefixtures("needs_assert_rewrite")
 def test_detailed_introspection(testdir: Any) -> None:
     """Check that the "mock_use_standalone" is being used."""
+    testdir.makeini(
+        """
+        [pytest]
+        asyncio_mode=auto
+        """
+    )
     testdir.makepyfile(
         """
         def test(mocker):
@@ -753,12 +851,12 @@ def test_detailed_introspection(testdir: Any) -> None:
         "*Args:",
         "*assert ('fo',) == ('',)",
         "*At index 0 diff: 'fo' != ''*",
-        "*Use -v to get the full diff*",
+        "*Use -v to get more diff*",
         "*Kwargs:*",
         "*assert {} == {'bar': 4}*",
         "*Right contains* more item*",
         "*{'bar': 4}*",
-        "*Use -v to get the full diff*",
+        "*Use -v to get more diff*",
     ]
     result.stdout.fnmatch_lines(expected_lines)
 
@@ -769,11 +867,16 @@ def test_detailed_introspection(testdir: Any) -> None:
 @pytest.mark.usefixtures("needs_assert_rewrite")
 def test_detailed_introspection_async(testdir: Any) -> None:
     """Check that the "mock_use_standalone" is being used."""
+    testdir.makeini(
+        """
+        [pytest]
+        asyncio_mode=auto
+        """
+    )
     testdir.makepyfile(
         """
         import pytest
 
-        @pytest.mark.asyncio
         async def test(mocker):
             m = mocker.AsyncMock()
             await m('fo')
@@ -789,12 +892,12 @@ def test_detailed_introspection_async(testdir: Any) -> None:
         "*Args:",
         "*assert ('fo',) == ('',)",
         "*At index 0 diff: 'fo' != ''*",
-        "*Use -v to get the full diff*",
+        "*Use -v to get more diff*",
         "*Kwargs:*",
         "*assert {} == {'bar': 4}*",
         "*Right contains* more item*",
         "*{'bar': 4}*",
-        "*Use -v to get the full diff*",
+        "*Use -v to get more diff*",
     ]
     result.stdout.fnmatch_lines(expected_lines)
 
@@ -824,6 +927,12 @@ def test_assert_called_with_unicode_arguments(mocker: MockerFixture) -> None:
 
 def test_plain_stopall(testdir: Any) -> None:
     """patch.stopall() in a test should not cause an error during unconfigure (#137)"""
+    testdir.makeini(
+        """
+        [pytest]
+        asyncio_mode=auto
+        """
+    )
     testdir.makepyfile(
         """
         import random
@@ -854,7 +963,7 @@ def test_warn_patch_object_context_manager(mocker: MockerFixture) -> None:
         "Mocks returned by pytest-mock do not need to be used as context managers. "
         "The mocker fixture automatically undoes mocking at the end of a test. "
         "This warning can be ignored if it was triggered by mocking a context manager. "
-        "https://github.com/pytest-dev/pytest-mock#note-about-usage-as-context-manager"
+        "https://pytest-mock.readthedocs.io/en/latest/remarks.html#usage-as-context-manager"
     )
 
     with pytest.warns(
@@ -871,7 +980,7 @@ def test_warn_patch_context_manager(mocker: MockerFixture) -> None:
         "Mocks returned by pytest-mock do not need to be used as context managers. "
         "The mocker fixture automatically undoes mocking at the end of a test. "
         "This warning can be ignored if it was triggered by mocking a context manager. "
-        "https://github.com/pytest-dev/pytest-mock#note-about-usage-as-context-manager"
+        "https://pytest-mock.readthedocs.io/en/latest/remarks.html#usage-as-context-manager"
     )
 
     with pytest.warns(
@@ -913,7 +1022,7 @@ def test_patch_context_manager_with_context_manager(mocker: MockerFixture) -> No
 
     a = A()
 
-    with pytest.warns(None) as warn_record:
+    with warnings.catch_warnings(record=True) as warn_record:
         with mocker.patch.context_manager(a, "doIt", return_value=True):
             assert a.doIt() is True
 
@@ -958,6 +1067,12 @@ def test_abort_patch_context_manager_with_stale_pyc(testdir: Any) -> None:
 
 
 def test_used_with_class_scope(testdir: Any) -> None:
+    testdir.makeini(
+        """
+        [pytest]
+        asyncio_mode=auto
+        """
+    )
     testdir.makepyfile(
         """
         import pytest
@@ -982,6 +1097,12 @@ def test_used_with_class_scope(testdir: Any) -> None:
 
 
 def test_used_with_module_scope(testdir: Any) -> None:
+    testdir.makeini(
+        """
+        [pytest]
+        asyncio_mode=auto
+        """
+    )
     testdir.makepyfile(
         """
         import pytest
@@ -1004,7 +1125,12 @@ def test_used_with_module_scope(testdir: Any) -> None:
 
 
 def test_used_with_package_scope(testdir: Any) -> None:
-    """..."""
+    testdir.makeini(
+        """
+        [pytest]
+        asyncio_mode=auto
+        """
+    )
     testdir.makepyfile(
         """
         import pytest
@@ -1027,7 +1153,12 @@ def test_used_with_package_scope(testdir: Any) -> None:
 
 
 def test_used_with_session_scope(testdir: Any) -> None:
-    """..."""
+    testdir.makeini(
+        """
+        [pytest]
+        asyncio_mode=auto
+        """
+    )
     testdir.makepyfile(
         """
         import pytest
@@ -1047,3 +1178,56 @@ def test_used_with_session_scope(testdir: Any) -> None:
     result = testdir.runpytest_subprocess()
     assert "AssertionError" not in result.stderr.str()
     result.stdout.fnmatch_lines("* 1 passed in *")
+
+
+def test_stop_patch(mocker):
+    class UnSpy:
+        def foo(self):
+            return 42
+
+    m = mocker.patch.object(UnSpy, "foo", return_value=0)
+    assert UnSpy().foo() == 0
+    mocker.stop(m)
+    assert UnSpy().foo() == 42
+
+    with pytest.raises(ValueError):
+        mocker.stop(m)
+
+
+def test_stop_instance_patch(mocker):
+    class UnSpy:
+        def foo(self):
+            return 42
+
+    m = mocker.patch.object(UnSpy, "foo", return_value=0)
+    un_spy = UnSpy()
+    assert un_spy.foo() == 0
+    mocker.stop(m)
+    assert un_spy.foo() == 42
+
+
+def test_stop_spy(mocker):
+    class UnSpy:
+        def foo(self):
+            return 42
+
+    spy = mocker.spy(UnSpy, "foo")
+    assert UnSpy().foo() == 42
+    assert spy.call_count == 1
+    mocker.stop(spy)
+    assert UnSpy().foo() == 42
+    assert spy.call_count == 1
+
+
+def test_stop_instance_spy(mocker):
+    class UnSpy:
+        def foo(self):
+            return 42
+
+    spy = mocker.spy(UnSpy, "foo")
+    un_spy = UnSpy()
+    assert un_spy.foo() == 42
+    assert spy.call_count == 1
+    mocker.stop(spy)
+    assert un_spy.foo() == 42
+    assert spy.call_count == 1
