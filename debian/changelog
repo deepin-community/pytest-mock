@@ -1,3 +1,11 @@
+pytest-mock (3.11.1-2) unstable; urgency=medium
+
+  * Team upload.
+  * Regenerate egg-info because it is needed for the unit tests
+    (Closes: #1052904)
+
+ -- Timo Röhling <roehling@debian.org>  Fri, 13 Oct 2023 19:40:04 +0200
+
 pytest-mock (3.11.1-1) unstable; urgency=medium
 
   * Team upload.
