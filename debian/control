@@ -6,14 +6,13 @@ Priority: optional
 Build-Depends: debhelper-compat (= 13),
                dh-python,
                dh-sequence-python3,
+	       furo <!nodoc>,
                python3-all,
-               python3-mock,
                python3-pytest (>= 7.1.2),
                python3-pytest-asyncio (>= 0.18),
                python3-setuptools,
                python3-setuptools-scm,
                python3-sphinx-copybutton <!nodoc>,
-               python3-sphinx-rtd-theme <!nodoc>,
                sphinx <!nodoc>
 Standards-Version: 4.6.2
 Vcs-Browser: https://salsa.debian.org/python-team/packages/pytest-mock
@@ -28,7 +27,6 @@ Depends: python3-pytest | python3-pytest (<< 3),
          ${python3:Depends}
 Recommends: ${python3:Recommends}
 Suggests: python-pytest-mock-doc,
-          python3-mock,
           ${python3:Suggests}
 Description: Thin wrapper around mock for easier use with pytest (Python 3 module)
  This plugin installs a "mocker" fixture which is a thin wrapper

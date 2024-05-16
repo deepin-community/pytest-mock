@@ -1,3 +1,20 @@
+pytest-mock (3.12.0-1.1) unstable; urgency=medium
+
+  [ Graham Inggs ]
+  * Cherry-pick upstream commit to fix tests for Python 3.11 and 3.12.
+    Closes: #1058417.
+
+ -- Matthias Klose <doko@debian.org>  Sun, 14 Jan 2024 12:47:16 +0100
+
+pytest-mock (3.12.0-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream version 3.12.0
+  * Drop Sphinx theme patch; furo is available
+  * Explicitly clean egg info
+
+ -- Timo Röhling <roehling@debian.org>  Mon, 13 Nov 2023 00:46:56 +0100
+
 pytest-mock (3.11.1-2) unstable; urgency=medium
 
   * Team upload.

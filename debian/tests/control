@@ -6,7 +6,6 @@ Test-Command: set -e
  ; $py -m pytest -v --assert=plain -o asyncio_mode=auto
  ; done
 Depends: python3-all,
-         python3-mock,
          python3-pytest (>= 7.1.2),
          python3-pytest-asyncio (>= 0.18),
          python3-pytest-mock
