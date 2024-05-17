@@ -136,3 +136,33 @@ It may receive an optional name that is shown in its ``repr``, useful for debugg
 .. seealso::
 
     ``async_stub`` method, which actually the same as ``stub`` but makes async stub.
+
+
+Usage as context manager
+------------------------
+
+Although mocker's API is intentionally the same as ``mock.patch``'s, its use
+as context manager and function decorator is **not** supported through the
+fixture:
+
+.. code-block:: python
+
+    def test_context_manager(mocker):
+        a = A()
+        with mocker.patch.object(a, 'doIt', return_value=True, autospec=True):  # DO NOT DO THIS
+            assert a.doIt() == True
+
+The purpose of this plugin is to make the use of context managers and
+function decorators for mocking unnecessary, so it will emit a warning when used as such.
+
+If you really intend to mock a context manager, ``mocker.patch.context_manager`` exists
+which won't issue the above warning.
+
+Where to patch
+--------------
+
+A common issue where mocking appears not to be working is patching in the wrong place.
+
+See this `section in the unittest docs <https://docs.python.org/3/library/unittest.mock.html#where-to-patch>`__ which provides a comprehensive explanation.
+
+Also see this excellent blog post: `Why your mock doesn't work <https://nedbatchelder.com/blog/201908/why_your_mock_doesnt_work.html>`__.
